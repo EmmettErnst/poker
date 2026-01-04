@@ -8,57 +8,76 @@
     body {
       background:#0b0f14;
       color:#e8eef7;
-      font-family: system-ui;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       margin:0;
     }
+
     .wrap {
       max-width: 900px;
       margin: 0 auto;
       padding: 32px;
     }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .muted {
+      opacity:.75;
+      margin-bottom: 24px;
+    }
+
     .grid {
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap:16px;
     }
+
     a.card {
       display:block;
-      padding:20px;
-      border-radius:16px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.12);
+      padding:22px;
+      border-radius:18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
       text-decoration:none;
       color:inherit;
+      transition: background .15s ease, transform .15s ease;
     }
+
     a.card:hover {
-      background:rgba(255,255,255,.12);
+      background: rgba(255,255,255,.12);
+      transform: translateY(-2px);
     }
-    h2 { margin:0 0 8px }
-    .muted { opacity:.75 }
+
+    h2 {
+      margin:0 0 8px;
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Poker Training</h1>
-    <p class="muted">Interactive tools to improve preflop and fundamentals.</p>
+    <div class="muted">
+      Interactive tools to build preflop intuition.
+    </div>
 
     <div class="grid">
       <a class="card" href="/preflop/">
         <h2>Preflop Rank Trainer</h2>
-        <p class="muted">Guess hand strength by rank or percentile.</p>
+        <p class="muted">
+          Guess hand strength by exact rank or percentile.
+        </p>
       </a>
 
-      <a class="card" href="/pot-odds/">
-        <h2>Pot Odds Trainer</h2>
-        <p class="muted">Practice call/fold decisions.</p>
-      </a>
-
-      <a class="card" href="/hand-rank/">
-        <h2>Hand Ranking Quiz</h2>
-        <p class="muted">Fast recall drills.</p>
+      <a class="card" href="/preflop-mcq/">
+        <h2>Preflop MCQ Trainer</h2>
+        <p class="muted">
+          Multiple choice version with 8 options per hand.
+        </p>
       </a>
     </div>
   </div>
 </body>
 </html>
-
