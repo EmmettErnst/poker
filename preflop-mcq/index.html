@@ -5,184 +5,365 @@
 <title>Preflop Percentile Trainer (MCQ)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body {
-    background:#0b0f14;
-    color:#e8eef7;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    margin:0;
-  }
+  :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  body { margin:0; background:#0b0f14; color:#e8eef7; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+  h1 { margin: 0 0 6px; font-size: 24px; }
+  .muted { opacity:.75; }
+  .toprow { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-top: 10px; }
 
-  .wrap {
-    max-width:900px;
-    margin:0 auto;
-    padding:24px;
-  }
-
-  h1 { margin:0 0 8px; }
-  .muted { opacity:.75; margin-bottom:16px; }
-
-  .cardrow {
-    display:flex;
-    gap:16px;
-    margin:16px 0;
-  }
-
+  .cardrow { display:flex; gap:16px; margin: 16px 0 8px; align-items:center; flex-wrap: wrap; }
   .playing-card{
-    width:110px;
-    height:150px;
-    border-radius:14px;
-    background:#f8fbff;
-    color:#111;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    padding:10px;
-    box-shadow:0 10px 30px rgba(0,0,0,.35);
+    width: 110px; height: 150px; border-radius: 14px;
+    background: #f8fbff; color:#111; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    display:flex; flex-direction:column; justify-content:space-between; padding: 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    user-select:none;
   }
-
-  .corner { font-weight:800; font-size:22px; }
-  .center { font-size:54px; font-weight:900; text-align:center; }
+  .corner { font-weight: 800; font-size: 22px; line-height: 1; }
+  .suit { font-size: 26px; opacity:.9; }
+  .center { display:flex; justify-content:center; align-items:center; font-size: 54px; font-weight: 900; }
   .red { color:#c81d25; }
   .black { color:#111; }
 
-  .choices {
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(90px,1fr));
-    gap:12px;
-    margin-top:16px;
+  .panel{
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 14px;
   }
 
-  button.choice {
-    padding:14px;
-    border-radius:14px;
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.15);
-    color:#e8eef7;
-    font-weight:700;
+  label { display:block; font-size: 12px; opacity:.85; margin: 0 0 6px; }
+  button, select {
+    border-radius: 12px; border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.08); color:#e8eef7;
+    padding: 10px 12px; font-size: 14px;
+    outline: none;
+  }
+  button { cursor:pointer; font-weight: 800; }
+  button:hover { background: rgba(255,255,255,.12); }
+
+  .choices{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .choice{
+    text-align:center;
+    padding: 14px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.07);
+    font-weight: 900;
     cursor:pointer;
   }
+  .choice:hover { background: rgba(255,255,255,.11); }
+  .choice:disabled { cursor:not-allowed; opacity:.85; }
+  .choice.correct { border-color: rgba(110,231,183,.95); }
+  .choice.wrong { border-color: rgba(252,165,165,.95); }
 
-  button.choice:hover {
-    background:rgba(255,255,255,.12);
+  .pill{
+    display:inline-flex; gap: 8px; align-items:center;
+    padding: 8px 10px; border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.10);
+    margin-right: 8px;
+    margin-top: 8px;
+    font-size: 13px;
   }
 
-  .good { color:#6ee7b7; }
-  .bad { color:#fca5a5; }
-
-  .result { margin-top:16px; }
+  .result { margin-top: 12px; line-height: 1.45; }
+  .good { color: #6ee7b7; }
+  .bad  { color: #fca5a5; }
+  .tiny { font-size: 12px; opacity:.8; margin-top: 10px; }
+  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2px 6px; border-radius: 8px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Preflop Percentile Trainer</h1>
-  <div class="muted">
-    Pick the correct percentile. Lower means stronger.
+  <div class="wrap">
+    <h1>Preflop Percentile Trainer</h1>
+    <div class="muted">Pick the correct percentile out of 8. Lower is better.</div>
+
+    <div class="panel">
+      <div class="toprow">
+        <div>
+          <label for="difficulty">Difficulty</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+
+        <button id="nextBtn">Next hand</button>
+        <button id="resetBtn">Reset score</button>
+      </div>
+
+      <div class="cardrow" id="cardRow"></div>
+
+      <div class="choices" id="choices"></div>
+      <div class="result" id="result"></div>
+
+      <div>
+        <span class="pill">Hand label: <b id="handLabel">...</b></span>
+        <span class="pill">Score: <b id="score">0</b></span>
+        <span class="pill">Streak: <b id="streak">0</b></span>
+        <span class="pill">Best streak: <b id="bestStreak">0</b></span>
+      </div>
+
+      <div class="tiny">
+        Tips: press <span class="kbd">N</span> for next. Press <span class="kbd">1</span>–<span class="kbd">8</span> to pick an answer.
+      </div>
+    </div>
   </div>
 
-  <div class="cardrow" id="cardRow"></div>
-
-  <div class="choices" id="choices"></div>
-  <div class="result" id="result"></div>
-</div>
-
 <script type="module">
-import { RANKINGS, buildIndex } from "./preflop_rankings_169.js";
-const { byCards } = buildIndex(RANKINGS);
+  import { RANKINGS, buildIndex } from "./preflop_rankings_169.js";
+  const { byCards: byHand } = buildIndex(RANKINGS);
 
-const RANK_VALUE = new Map([
-  ["A",14],["K",13],["Q",12],["J",11],["T",10],
-  ["9",9],["8",8],["7",7],["6",6],["5",5],["4",4],["3",3],["2",2]
-]);
+  const RANK_VALUE = new Map([
+    ["A",14],["K",13],["Q",12],["J",11],["T",10],
+    ["9",9],["8",8],["7",7],["6",6],["5",5],["4",4],["3",3],["2",2]
+  ]);
 
-const SUITS = [
-  {c:"♠", color:"black", key:"s"},
-  {c:"♥", color:"red", key:"h"},
-  {c:"♦", color:"red", key:"d"},
-  {c:"♣", color:"black", key:"c"}
-];
+  const SUITS = [
+    {c:"♠", color:"black", key:"s"},
+    {c:"♥", color:"red",   key:"h"},
+    {c:"♦", color:"red",   key:"d"},
+    {c:"♣", color:"black", key:"c"},
+  ];
+  const RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
 
-const RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
-
-function makeDeck() {
-  const d = [];
-  for (const r of RANKS) for (const s of SUITS) d.push({rank:r,suit:s});
-  return d;
-}
-
-function drawTwo() {
-  const d = makeDeck();
-  const a = d.splice(Math.random()*d.length|0,1)[0];
-  const b = d.splice(Math.random()*d.length|0,1)[0];
-  return [a,b];
-}
-
-function toLabel(a,b) {
-  if (a.rank === b.rank) return a.rank + b.rank;
-  const hi = RANK_VALUE.get(a.rank) > RANK_VALUE.get(b.rank) ? a.rank : b.rank;
-  const lo = hi === a.rank ? b.rank : a.rank;
-  return hi + lo + (a.suit.key === b.suit.key ? "s" : "o");
-}
-
-function renderCard(c) {
-  const d = document.createElement("div");
-  d.className="playing-card";
-  d.innerHTML = `
-    <div class="corner ${c.suit.color}">${c.rank}</div>
-    <div class="center ${c.suit.color}">${c.suit.c}</div>
-    <div class="corner ${c.suit.color}" style="transform:rotate(180deg)">${c.rank}</div>
-  `;
-  return d;
-}
-
-let currentPct = null;
-
-function newHand() {
-  document.getElementById("result").innerHTML="";
-  const cards = drawTwo();
-  const label = toLabel(cards[0],cards[1]);
-  const data = byCards.get(label);
-
-  currentPct = Number(data.Percentile);
-
-  const row = document.getElementById("cardRow");
-  row.innerHTML="";
-  row.append(renderCard(cards[0]), renderCard(cards[1]));
-
-  const choices = new Set([currentPct]);
-  while (choices.size < 8) {
-    const offset = (Math.random()*20|0) - 10;
-    const v = Math.min(100, Math.max(0, currentPct + offset));
-    choices.add(v);
+  function makeDeck() {
+    const deck = [];
+    for (const r of RANKS) for (const s of SUITS) deck.push({rank:r, suit:s});
+    return deck;
+  }
+  function randInt(n) { return Math.floor(Math.random() * n); }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = randInt(i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function drawTwo() {
+    const deck = makeDeck();
+    const a = deck.splice(randInt(deck.length), 1)[0];
+    const b = deck.splice(randInt(deck.length), 1)[0];
+    return [a,b];
   }
 
-  const box = document.getElementById("choices");
-  box.innerHTML="";
-  [...choices].sort(()=>Math.random()-0.5).forEach(v=>{
-    const b = document.createElement("button");
-    b.className="choice";
-    b.textContent=v;
-    b.onclick=()=>reveal(v);
-    box.appendChild(b);
+  function toHandLabel(c1, c2) {
+    const r1 = c1.rank, r2 = c2.rank;
+    const v1 = RANK_VALUE.get(r1), v2 = RANK_VALUE.get(r2);
+    if (r1 === r2) return r1 + r2;
+    let hi = r1, lo = r2;
+    if (v2 > v1) { hi = r2; lo = r1; }
+    const suited = (c1.suit.key === c2.suit.key);
+    return hi + lo + (suited ? "s" : "o");
+  }
+
+  function renderCard(card) {
+    const isRed = card.suit.color === "red";
+    const div = document.createElement("div");
+    div.className = "playing-card";
+
+    const top = document.createElement("div");
+    top.className = "corner " + (isRed ? "red" : "black");
+    top.innerHTML = `${card.rank}<div class="suit">${card.suit.c}</div>`;
+
+    const mid = document.createElement("div");
+    mid.className = "center " + (isRed ? "red" : "black");
+    mid.textContent = card.suit.c;
+
+    const bot = document.createElement("div");
+    bot.className = "corner " + (isRed ? "red" : "black");
+    bot.style.transform = "rotate(180deg)";
+    bot.innerHTML = `${card.rank}<div class="suit">${card.suit.c}</div>`;
+
+    div.appendChild(top);
+    div.appendChild(mid);
+    div.appendChild(bot);
+    return div;
+  }
+
+  function getOffsets(diff) {
+    if (diff === "easy") return [15,18,22,26,30,35,40];
+    if (diff === "hard") return [1,2,3,4,5,6,7,8,9,10];
+    return [4,6,8,10,12,15,18,22,25,30]; // medium
+  }
+
+  // UI
+  const cardRow = document.getElementById("cardRow");
+  const choicesEl = document.getElementById("choices");
+  const resultEl = document.getElementById("result");
+  const handLabelEl = document.getElementById("handLabel");
+  const scoreEl = document.getElementById("score");
+  const streakEl = document.getElementById("streak");
+  const bestStreakEl = document.getElementById("bestStreak");
+  const nextBtn = document.getElementById("nextBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const difficultyEl = document.getElementById("difficulty");
+
+  // State
+  let current = null; // {label,data,actualPct,options,answered}
+  let score = 0, streak = 0, bestStreak = 0;
+
+  function setStats() {
+    scoreEl.textContent = String(score);
+    streakEl.textContent = String(streak);
+    bestStreakEl.textContent = String(bestStreak);
+  }
+
+  function buildOptions(actualPct, diffMode) {
+    const offsets = getOffsets(diffMode);
+    const opts = new Set([actualPct]);
+
+    // Prefer near-by distractors based on offsets
+    let guard = 0;
+    while (opts.size < 8 && guard < 500) {
+      guard++;
+      const step = offsets[randInt(offsets.length)];
+      const sign = (Math.random() < 0.5) ? -1 : 1;
+      let v = actualPct + sign * step;
+      v = Math.max(0, Math.min(100, v));
+      opts.add(v);
+    }
+
+    // If we got pinned at edges, fill randomly
+    while (opts.size < 8) {
+      opts.add(randInt(101));
+    }
+
+    return shuffle(Array.from(opts));
+  }
+
+  function newHand() {
+    resultEl.innerHTML = "";
+    choicesEl.innerHTML = "";
+
+    const diffMode = difficultyEl.value;
+
+    const cards = drawTwo();
+    const label = toHandLabel(cards[0], cards[1]);
+    const data = byHand.get(label) || null;
+
+    cardRow.innerHTML = "";
+    cardRow.appendChild(renderCard(cards[0]));
+    cardRow.appendChild(renderCard(cards[1]));
+
+    handLabelEl.textContent = label + (data ? "" : " (not found)");
+
+    if (!data) {
+      current = { label, data: null, answered: true };
+      resultEl.innerHTML = `<div class="bad">This hand label (${label}) was not found in the rankings map.</div>`;
+      return;
+    }
+
+    const actualPct = Number(String(data.Percentile).replace("%","").trim());
+    const options = buildOptions(actualPct, diffMode);
+
+    current = { label, data, actualPct, options, answered: false };
+
+    for (let i = 0; i < options.length; i++) {
+      const v = options[i];
+      const btn = document.createElement("button");
+      btn.className = "choice";
+      btn.type = "button";
+      btn.textContent = String(v); // IMPORTANT: just "x", not "percentile x"
+      btn.dataset.idx = String(i);
+      btn.addEventListener("click", () => choose(v, btn));
+      choicesEl.appendChild(btn);
+    }
+  }
+
+  function choose(value, btnEl) {
+    if (!current || current.answered) return;
+    current.answered = true;
+
+    const actual = current.actualPct;
+    const diff = actual - value;
+
+    // Scoring: exact match only
+    const correct = (value === actual);
+    if (correct) {
+      score += 1;
+      streak += 1;
+      if (streak > bestStreak) bestStreak = streak;
+    } else {
+      streak = 0;
+    }
+    setStats();
+
+    // Disable and mark buttons
+    const all = Array.from(choicesEl.querySelectorAll("button.choice"));
+    for (const b of all) {
+      b.disabled = true;
+      const v = Number(b.textContent);
+      if (v === actual) b.classList.add("correct");
+    }
+    if (!correct) btnEl.classList.add("wrong");
+
+    let directionLine = "";
+    if (diff === 0) {
+      directionLine = "Exactly right.";
+    } else if (diff > 0) {
+      directionLine = `The hand was <b>${diff}</b> points <b>worse</b> than you predicted.`;
+    } else {
+      directionLine = `The hand was <b>${Math.abs(diff)}</b> points <b>better</b> than you predicted.`;
+    }
+
+    const cls = correct ? "good" : "bad";
+
+    const actualRank = Number(String(current.data.Rank).replace("%","").trim());
+    const skl = current.data["Sklansky Group"];
+    const win = current.data["% win"];
+    const tie = current.data["% tie"];
+
+    resultEl.innerHTML = `
+      <div class="${cls}">
+        Actual: <b>${actual}</b>, you chose <b>${value}</b>
+        <div class="muted">${directionLine}</div>
+      </div>
+      <div class="muted">
+        Rank: <b>#${actualRank}</b> |
+        Percentile: <b>${actual}</b> |
+        Sklansky group: <b>${skl}</b> |
+        Win: <b>${win}</b> |
+        Tie: <b>${tie}</b>
+      </div>
+    `;
+  }
+
+  function resetScore() {
+    score = 0; streak = 0; bestStreak = 0;
+    setStats();
+    resultEl.innerHTML = "";
+  }
+
+  nextBtn.addEventListener("click", newHand);
+  resetBtn.addEventListener("click", resetScore);
+  difficultyEl.addEventListener("change", newHand);
+
+  document.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "n") newHand();
+
+    // 1–8 picks an answer
+    if (!current || current.answered) return;
+    if (e.key >= "1" && e.key <= "8") {
+      const idx = Number(e.key) - 1;
+      const btns = Array.from(choicesEl.querySelectorAll("button.choice"));
+      const btn = btns[idx];
+      if (btn && !btn.disabled) btn.click();
+    }
   });
-}
 
-function reveal(guess) {
-  const diff = currentPct - guess;
-  const msg =
-    diff === 0 ? "Exactly right." :
-    diff > 0
-      ? `The hand was <b>${diff}</b> points <b>worse</b> than you predicted.`
-      : `The hand was <b>${Math.abs(diff)}</b> points <b>better</b> than you predicted.`;
-
-  document.getElementById("result").innerHTML = `
-    <div class="${diff===0?"good":"bad"}">
-      Actual: <b>${currentPct}</b>, you guessed <b>${guess}</b>
-    </div>
-    <div class="muted">${msg}</div>
-  `;
-}
-
-newHand();
+  setStats();
+  newHand();
 </script>
 </body>
 </html>
