@@ -1,1 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Poker Training</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background:#0b0f14;
+      color:#e8eef7;
+      font-family: system-ui;
+      margin:0;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+    .grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+      gap:16px;
+    }
+    a.card {
+      display:block;
+      padding:20px;
+      border-radius:16px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      text-decoration:none;
+      color:inherit;
+    }
+    a.card:hover {
+      background:rgba(255,255,255,.12);
+    }
+    h2 { margin:0 0 8px }
+    .muted { opacity:.75 }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Poker Training</h1>
+    <p class="muted">Interactive tools to improve preflop and fundamentals.</p>
+
+    <div class="grid">
+      <a class="card" href="/preflop/">
+        <h2>Preflop Rank Trainer</h2>
+        <p class="muted">Guess hand strength by rank or percentile.</p>
+      </a>
+
+      <a class="card" href="/pot-odds/">
+        <h2>Pot Odds Trainer</h2>
+        <p class="muted">Practice call/fold decisions.</p>
+      </a>
+
+      <a class="card" href="/hand-rank/">
+        <h2>Hand Ranking Quiz</h2>
+        <p class="muted">Fast recall drills.</p>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
 
