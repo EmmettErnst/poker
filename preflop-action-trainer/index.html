@@ -68,6 +68,42 @@
 
     .tiny { font-size: 12px; opacity:.8; margin-top: 10px; }
     .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2px 6px; border-radius: 8px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); }
+
+    /* --- Table diagram --- */
+    .table-diagram{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      max-width: 720px;
+    }
+    .seat{
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      border-radius: 14px;
+      padding: 10px 10px 8px;
+      min-height: 62px;
+    }
+    .seat .pos{
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .seat.you{
+      outline: 2px solid rgba(110,231,183,.65);
+    }
+    .tag{
+      margin-top: 6px;
+      display:inline-block;
+      font-size: 12px;
+      opacity: .85;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+    }
+    .tag.limp{ border-color: rgba(147,197,253,.45); }
+    .tag.raise{ border-color: rgba(251,191,36,.55); }
+    .tag.todo{ opacity: .55; }
+    .tag.none{ opacity: .45; }
   </style>
 </head>
 <body>
@@ -101,6 +137,12 @@
       </div>
 
       <div class="cardrow" id="cardRow"></div>
+
+      <!-- Table diagram -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="muted" style="margin-bottom:10px;">Table view</div>
+        <div id="tableDiagram" class="table-diagram" aria-label="Table diagram"></div>
+      </div>
 
       <div class="actions">
         <button class="fold" id="foldBtn">Fold</button>
@@ -139,10 +181,8 @@
 
   <script type="module">
     // IMPORTANT:
-    // This import assumes your folder structure is:
     // poker/preflop-action-trainer/index.html
     // poker/assets/preflop_rankings_169.js
-    // If your assets are elsewhere, change the path below.
     import { RANKINGS, buildIndex } from "../assets/preflop_rankings_169.js";
     const { byCards: byHand } = buildIndex(RANKINGS);
 
@@ -154,24 +194,19 @@
     const OPEN_6MAX = {"UTG":18,"HJ":22,"CO":27,"BTN":40,"SB":45,"BB":55};
     const OPEN_9MAX = {"UTG":15,"UTG+1":16,"UTG+2":18,"LJ":20,"HJ":22,"CO":27,"BTN":40,"SB":45,"BB":55};
 
-    // Limp scenario: iso-raise a bit tighter than open
     function isoCutoff(pos, openCut) {
       if (pos === "BTN") return openCut - 2;
       if (pos === "SB") return openCut - 6;
       if (pos === "BB") return openCut - 10;
       return openCut - 4;
     }
-
-    // Limp scenario: calling over limpers is usually narrow, mostly late positions and blinds
     function limpCallCutoff(pos) {
       if (pos === "BTN") return 34;
       if (pos === "CO")  return 26;
       if (pos === "SB")  return 30;
       if (pos === "BB")  return 38;
-      return 0; // basically "do not call limps" early
+      return 0;
     }
-
-    // Vs raise: simple 3bet / call thresholds (toy model, still very useful for practice)
     function threeBetCutoff(pos) {
       if (pos === "BTN") return 16;
       if (pos === "CO")  return 14;
@@ -179,10 +214,9 @@
       if (pos.startsWith("UTG")) return 10;
       if (pos === "LJ") return 11;
       if (pos === "SB") return 14;
-      if (pos === "BB") return 0; // BB usually calls more than 3bets in a basic model
+      if (pos === "BB") return 0;
       return 12;
     }
-
     function callVsRaiseCutoff(pos) {
       if (pos === "BTN") return 26;
       if (pos === "CO")  return 20;
@@ -281,6 +315,8 @@
     const tableSizeEl = document.getElementById("tableSize");
     const difficultyEl = document.getElementById("difficulty");
 
+    const tableDiagramEl = document.getElementById("tableDiagram");
+
     const STORAGE_KEY = "preflop_action_trainer_v1";
 
     // State
@@ -288,7 +324,7 @@
     let openTargets = { ...OPEN_6MAX };
     let orbitIndex = 0;
 
-    let current = null; // {cards,label,data,pct,pos,scenario,limpers,raiseTo,allowed,answers,answered}
+    let current = null;
     let stats = { hands: 0, best: 0, ok: 0, score: 0, streak: 0, bestStreak: 0 };
 
     function setStatsUI() {
@@ -360,19 +396,9 @@
     }
 
     function chooseScenario(difficulty) {
-      // Scenarios:
-      // unopened: you can open or fold
-      // limpers: limpers in front, you can fold/call/raise (iso). "open" is not used, but we keep "raise"
-      // vsRaise: someone opened, you can fold/call/raise
       const r = Math.random();
-
-      if (difficulty === "easy") {
-        return (r < 0.80) ? "unopened" : "limpers";
-      }
-      if (difficulty === "normal") {
-        return (r < 0.55) ? "unopened" : "limpers";
-      }
-      // hard
+      if (difficulty === "easy") return (r < 0.80) ? "unopened" : "limpers";
+      if (difficulty === "normal") return (r < 0.55) ? "unopened" : "limpers";
       if (r < 0.35) return "unopened";
       if (r < 0.70) return "limpers";
       return "vsRaise";
@@ -381,27 +407,16 @@
     function allowedActionsForScenario(scenario) {
       if (scenario === "unopened") return ["fold", "open"];
       if (scenario === "limpers")  return ["fold", "call", "raise"];
-      return ["fold", "call", "raise"]; // vsRaise
+      return ["fold", "call", "raise"];
     }
 
     function decisionForSpot({ pos, scenario, pct, limpers, raiseTo }) {
-      // Returns best + acceptable arrays, plus a quick explanation.
       const openCut = openTargets[pos] ?? 0;
 
       if (scenario === "unopened") {
         const shouldOpen = pct <= openCut;
-        if (shouldOpen) {
-          return {
-            best: ["open"],
-            acceptable: [],
-            note: `Unopened: open if percentile ≤ ${openCut}.`
-          };
-        }
-        return {
-          best: ["fold"],
-          acceptable: [],
-          note: `Unopened: fold if percentile > ${openCut}.`
-        };
+        if (shouldOpen) return { best: ["open"], acceptable: [], note: `Unopened: open if percentile ≤ ${openCut}.` };
+        return { best: ["fold"], acceptable: [], note: `Unopened: fold if percentile > ${openCut}.` };
       }
 
       if (scenario === "limpers") {
@@ -410,38 +425,18 @@
         const isoOk = pct <= iso;
         const callOk = pct <= callCut;
 
-        // Simple philosophy:
-        // - If iso is good, best = raise (iso). Call can be acceptable if also callOk.
-        // - If iso not good but callOk, best = call.
-        // - Else fold.
         if (isoOk) {
           const acceptable = [];
           if (callOk) acceptable.push("call");
-          return {
-            best: ["raise"],
-            acceptable,
-            note: `Limpers (${limpers}): iso-raise if percentile ≤ ${iso}. Calling mostly late or blinds.`
-          };
+          return { best: ["raise"], acceptable, note: `Limpers (${limpers}): iso-raise if percentile ≤ ${iso}.` };
         }
-        if (callOk) {
-          return {
-            best: ["call"],
-            acceptable: [],
-            note: `Limpers (${limpers}): call allowed here up to ${callCut}.`
-          };
-        }
-        return {
-          best: ["fold"],
-          acceptable: [],
-          note: `Limpers (${limpers}): too weak to iso (${iso}) or call (${callCut}).`
-        };
+        if (callOk) return { best: ["call"], acceptable: [], note: `Limpers (${limpers}): call allowed here up to ${callCut}.` };
+        return { best: ["fold"], acceptable: [], note: `Limpers (${limpers}): too weak to iso (${iso}) or call (${callCut}).` };
       }
 
-      // vsRaise
       const tb = threeBetCutoff(pos);
       const cc = callVsRaiseCutoff(pos);
 
-      // BB calls wider vs small raises
       let callAdj = 0;
       if (pos === "BB" && raiseTo <= 2.5) callAdj = 4;
       const ccAdj = cc + callAdj;
@@ -449,26 +444,9 @@
       const can3bet = (tb > 0) && (pct <= tb);
       const canCall = (ccAdj > 0) && (pct <= ccAdj);
 
-      if (can3bet) {
-        // Calling can be acceptable if also in call range
-        return {
-          best: ["raise"],
-          acceptable: canCall ? ["call"] : [],
-          note: `Vs raise to ${raiseTo}x: 3-bet if percentile ≤ ${tb}. Call if percentile ≤ ${ccAdj}.`
-        };
-      }
-      if (canCall) {
-        return {
-          best: ["call"],
-          acceptable: [],
-          note: `Vs raise to ${raiseTo}x: call if percentile ≤ ${ccAdj}.`
-        };
-      }
-      return {
-        best: ["fold"],
-        acceptable: [],
-        note: `Vs raise to ${raiseTo}x: fold outside 3-bet (${tb}) and call (${ccAdj}) ranges.`
-      };
+      if (can3bet) return { best: ["raise"], acceptable: canCall ? ["call"] : [], note: `Vs raise to ${raiseTo}x: 3-bet if percentile ≤ ${tb}. Call if percentile ≤ ${ccAdj}.` };
+      if (canCall) return { best: ["call"], acceptable: [], note: `Vs raise to ${raiseTo}x: call if percentile ≤ ${ccAdj}.` };
+      return { best: ["fold"], acceptable: [], note: `Vs raise to ${raiseTo}x: fold outside 3-bet (${tb}) and call (${ccAdj}) ranges.` };
     }
 
     function prettyScenario(s) {
@@ -479,7 +457,7 @@
 
     function buildScenarioDetails(scenario) {
       if (scenario === "limpers") {
-        const limpers = 1 + randInt(3); // 1 to 3
+        const limpers = 1 + randInt(3);
         return { limpers, raiseTo: null };
       }
       if (scenario === "vsRaise") {
@@ -491,8 +469,6 @@
     }
 
     function pickHandNearCutoffIfHard({ difficulty, scenario, pos }) {
-      // Hard mode: often select hands close to the cutoff to train edges.
-      // We do this by drawing up to N times and keeping one that is near the relevant threshold.
       const wantsBorderline = (difficulty === "hard") && (Math.random() < 0.70);
       const maxTries = wantsBorderline ? 80 : 1;
 
@@ -527,18 +503,84 @@
         if (!best || dist < best.dist) best = { ...cand, dist };
       }
 
-      // fallback
       if (best) {
         const { dist, ...rest } = best;
         return rest;
       }
-      // absolute fallback, even if missing, should be rare
+
       const cards = drawTwo();
       const label = toHandLabel(cards[0], cards[1]);
       const data = byHand.get(label) || null;
       const pct = data ? parsePct(data.Percentile) : NaN;
       return { cards, label, data, pct };
     }
+
+    /* ---------------- Table diagram rendering ---------------- */
+
+    function renderDiagram({ posList, heroPos, scenario, limpers, raiseTo }) {
+      if (!tableDiagramEl) return;
+
+      const ordered = posList.slice();
+      const heroIndex = ordered.indexOf(heroPos);
+      const ahead = heroIndex > 0 ? ordered.slice(0, heroIndex) : [];
+      const behind = heroIndex >= 0 ? ordered.slice(heroIndex + 1) : [];
+
+      const tagsByPos = new Map();
+
+      if (scenario === "unopened") {
+        // no tags ahead
+      } else if (scenario === "limpers") {
+        const n = Math.min(Number(limpers || 0), ahead.length);
+        const limpersAhead = ahead.slice(-n);
+        for (const p of limpersAhead) {
+          tagsByPos.set(p, { text: "Limp", cls: "limp" });
+        }
+      } else if (scenario === "vsRaise") {
+        if (ahead.length > 0) {
+          const raiser = ahead[ahead.length - 1];
+          tagsByPos.set(raiser, { text: `Raise ${raiseTo}x`, cls: "raise" });
+        }
+      }
+
+      for (const p of behind) {
+        if (!tagsByPos.has(p)) tagsByPos.set(p, { text: "To act", cls: "todo" });
+      }
+
+      tableDiagramEl.innerHTML = "";
+      for (const p of ordered) {
+        const seat = document.createElement("div");
+        seat.className = "seat" + (p === heroPos ? " you" : "");
+
+        const top = document.createElement("div");
+        top.className = "pos";
+        top.textContent = p;
+        seat.appendChild(top);
+
+        if (p === heroPos) {
+          const t = document.createElement("div");
+          t.className = "tag";
+          t.textContent = "YOU";
+          seat.appendChild(t);
+        }
+
+        const tag = tagsByPos.get(p);
+        if (tag) {
+          const t = document.createElement("div");
+          t.className = `tag ${tag.cls}`;
+          t.textContent = tag.text;
+          seat.appendChild(t);
+        } else if (p !== heroPos) {
+          const t = document.createElement("div");
+          t.className = "tag none";
+          t.textContent = "—";
+          seat.appendChild(t);
+        }
+
+        tableDiagramEl.appendChild(seat);
+      }
+    }
+
+    /* ---------------- Main loop ---------------- */
 
     function newHand() {
       resultEl.innerHTML = "";
@@ -562,15 +604,27 @@
       const allowed = allowedActionsForScenario(scenario);
       setActionEnabled(allowed);
 
+      renderDiagram({
+        posList: positions,
+        heroPos: pos,
+        scenario,
+        limpers: details.limpers,
+        raiseTo: details.raiseTo
+      });
+
       if (!data || !Number.isFinite(pct)) {
         current = { label, data, pct, pos, scenario, ...details, allowed, answers: null, answered: true };
-        setActionEnabled([]); // disable all
+        setActionEnabled([]);
         resultEl.innerHTML = `<div class="bad">Hand data missing for <b>${label}</b>. Try Next.</div>`;
         saveState();
         return;
       }
 
-      const answers = decisionForSpot({ pos, scenario, pct, limpers: details.limpers, raiseTo: details.raiseTo ?? 0 });
+      const answers = decisionForSpot({
+        pos, scenario, pct,
+        limpers: details.limpers,
+        raiseTo: details.raiseTo ?? 0
+      });
 
       current = {
         cards, label, data, pct,
@@ -582,14 +636,10 @@
         answered: false
       };
 
-      // Small scenario hint line
       let hint = "";
       if (scenario === "limpers") hint = `Limpers: <b>${current.limpers}</b>`;
       if (scenario === "vsRaise") hint = `Raise to: <b>${current.raiseTo}x</b>`;
-
-      if (hint) {
-        resultEl.innerHTML = `<div class="muted">${hint}</div>`;
-      }
+      if (hint) resultEl.innerHTML = `<div class="muted">${hint}</div>`;
 
       saveState();
     }
@@ -599,7 +649,7 @@
       if (!current.allowed.includes(choice)) return;
 
       current.answered = true;
-      setActionEnabled([]); // lock after answer
+      setActionEnabled([]);
 
       const { best, acceptable, note } = current.answers;
 
