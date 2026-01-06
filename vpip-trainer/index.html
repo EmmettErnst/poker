@@ -30,6 +30,7 @@
     }
     button { cursor:pointer; font-weight: 800; }
     button:hover { background: rgba(255,255,255,.12); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
 
     .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top: 10px; }
     .play { border-color: rgba(110,231,183,.45); }
@@ -75,27 +76,16 @@
   <div class="wrap">
     <h1>VPIP Trainer</h1>
     <div class="muted">
-      You get dealt a hand + position. Decide if you would VPIP (Play) or Fold using a simple opening cutoff based on percentile (lower is better).
+      You get dealt a hand and you move through positions in order (an orbit). Decide if you would VPIP (Play) or Fold using a percentile cutoff (lower is better).
     </div>
 
     <div class="panel">
       <div class="row">
         <div>
-          <label for="posMode">Position mode</label>
-          <select id="posMode">
-            <option value="random" selected>Random position</option>
-            <option value="fixed">Fixed position</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="fixedPos">Fixed position</label>
-          <select id="fixedPos" disabled>
-            <option value="UTG">UTG</option>
-            <option value="HJ">HJ</option>
-            <option value="CO">CO</option>
-            <option value="BTN">BTN</option>
-            <option value="SB">SB</option>
+          <label for="tableSize">Table</label>
+          <select id="tableSize">
+            <option value="6" selected>6-max</option>
+            <option value="9">9-max</option>
           </select>
         </div>
 
@@ -116,6 +106,7 @@
         <span class="pill">Hand: <b id="handLabel">...</b></span>
         <span class="pill">Position: <b id="posLabel">...</b></span>
         <span class="pill">Target VPIP: <b id="targetLabel">...</b></span>
+        <span class="pill">Orbit: <b id="orbitLabel">...</b></span>
       </div>
 
       <div>
@@ -131,7 +122,7 @@
       </div>
 
       <div class="muted" style="margin-top:12px;">
-        Default cutoffs (6-max open): play if percentile ≤ target.
+        Current table targets (open ranges by position). Rule: play if percentile ≤ target.
       </div>
       <table>
         <thead>
@@ -144,21 +135,36 @@
 
   <script type="module">
     import { RANKINGS, buildIndex } from "../assets/preflop_rankings_169.js";
-
     const { byCards: byHand } = buildIndex(RANKINGS);
 
-    // Simple 6-max open cutoffs (percent of hands).
-    // Interpret as: play if Percentile <= target (lower is better).
-    const TARGETS = {
-      UTG: 18,
-      HJ: 22,
-      CO: 27,
-      BTN: 40,
-      SB: 45
-    };
-    const POSITIONS = Object.keys(TARGETS);
+    // Positions in orbit order
+    const POSITIONS_6MAX = ["UTG", "HJ", "CO", "BTN", "SB", "BB"];
+    const POSITIONS_9MAX = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
 
-    const STORAGE_KEY = "vpip_trainer_v1";
+    // Targets are "open VPIP" cutoffs (percent of hands)
+    // Interpret as: play if Percentile <= target (lower is better).
+    const VPIP_TARGETS_6MAX = {
+      "UTG": 18,
+      "HJ": 22,
+      "CO": 27,
+      "BTN": 40,
+      "SB": 45,
+      "BB": 55
+    };
+
+    const VPIP_TARGETS_9MAX = {
+      "UTG": 15,
+      "UTG+1": 16,
+      "UTG+2": 18,
+      "LJ": 20,
+      "HJ": 22,
+      "CO": 27,
+      "BTN": 40,
+      "SB": 45,
+      "BB": 55
+    };
+
+    const STORAGE_KEY = "vpip_trainer_orbit_v1";
 
     const RANK_VALUE = new Map([
       ["A",14],["K",13],["Q",12],["J",11],["T",10],
@@ -236,6 +242,7 @@
     const handLabelEl = document.getElementById("handLabel");
     const posLabelEl = document.getElementById("posLabel");
     const targetLabelEl = document.getElementById("targetLabel");
+    const orbitLabelEl = document.getElementById("orbitLabel");
 
     const handsNEl = document.getElementById("handsN");
     const accEl = document.getElementById("acc");
@@ -247,51 +254,50 @@
     const foldBtn = document.getElementById("foldBtn");
     const nextBtn = document.getElementById("nextBtn");
     const resetBtn = document.getElementById("resetBtn");
-
-    const posModeEl = document.getElementById("posMode");
-    const fixedPosEl = document.getElementById("fixedPos");
-
+    const tableSizeEl = document.getElementById("tableSize");
     const targetsTable = document.getElementById("targetsTable");
-    targetsTable.innerHTML = POSITIONS.map(p => {
-      const note = (p === "UTG") ? "Tightest" : (p === "BTN" ? "Widest" : "");
-      return `<tr><td><b>${p}</b></td><td>${TARGETS[p]}%</td><td class="muted">${note}</td></tr>`;
-    }).join("");
-
-    // State
-    let current = null; // {cards,label,data,pct,pos,target,answered}
-    let stats = {
-      hands: 0,
-      correct: 0,
-      vpip: 0,
-      streak: 0,
-      bestStreak: 0
-    };
-
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj === "object") {
-          stats = { ...stats, ...obj.stats };
-          if (obj.posMode) posModeEl.value = obj.posMode;
-          if (obj.fixedPos && TARGETS[obj.fixedPos] != null) fixedPosEl.value = obj.fixedPos;
-        }
-      } catch {}
-    }
-    function saveState() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          stats,
-          posMode: posModeEl.value,
-          fixedPos: fixedPosEl.value
-        }));
-      } catch {}
-    }
 
     function setButtonsEnabled(enabled) {
       playBtn.disabled = !enabled;
       foldBtn.disabled = !enabled;
+    }
+
+    // Orbit + targets state
+    let positions = POSITIONS_6MAX.slice();
+    let targets = { ...VPIP_TARGETS_6MAX };
+    let orbitIndex = 0;
+
+    // Game state
+    let current = null; // {label,data,pct,pos,target,answered}
+    let stats = { hands: 0, correct: 0, vpip: 0, streak: 0, bestStreak: 0 };
+
+    function rebuildTargetsTable() {
+      const ps = positions;
+      const rows = ps.map(p => {
+        const t = targets[p];
+        const note = (p === "UTG") ? "Tightest" : (p === "BTN" ? "Widest" : "");
+        return `<tr><td><b>${p}</b></td><td>${t}%</td><td class="muted">${note}</td></tr>`;
+      });
+      targetsTable.innerHTML = rows.join("");
+    }
+
+    function configureTable(size) {
+      if (size === 9) {
+        positions = POSITIONS_9MAX.slice();
+        targets = { ...VPIP_TARGETS_9MAX };
+      } else {
+        positions = POSITIONS_6MAX.slice();
+        targets = { ...VPIP_TARGETS_6MAX };
+      }
+      orbitIndex = 0;
+      rebuildTargetsTable();
+    }
+
+    function nextPosition() {
+      const pos = positions[orbitIndex];
+      orbitIndex = (orbitIndex + 1) % positions.length;
+      orbitLabelEl.textContent = `${orbitIndex === 0 ? positions.length : orbitIndex}/${positions.length}`;
+      return pos;
     }
 
     function setStatsUI() {
@@ -304,17 +310,40 @@
       bestStreakEl.textContent = String(stats.bestStreak);
     }
 
-    function pickPosition() {
-      if (posModeEl.value === "fixed") return fixedPosEl.value;
-      return POSITIONS[randInt(POSITIONS.length)];
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          stats,
+          orbitIndex,
+          tableSize: Number(tableSizeEl.value)
+        }));
+      } catch {}
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj !== "object") return;
+
+        if (obj.stats) stats = { ...stats, ...obj.stats };
+        const size = (obj.tableSize === 9) ? 9 : 6;
+        tableSizeEl.value = String(size);
+        configureTable(size);
+
+        if (Number.isFinite(obj.orbitIndex)) {
+          orbitIndex = Math.max(0, Math.min(positions.length - 1, obj.orbitIndex));
+        }
+      } catch {}
     }
 
     function newHand() {
       resultEl.innerHTML = "";
       cardRow.innerHTML = "";
 
-      const pos = pickPosition();
-      const target = TARGETS[pos];
+      const pos = nextPosition();
+      const target = targets[pos];
 
       const cards = drawTwo();
       const label = toHandLabel(cards[0], cards[1]);
@@ -328,14 +357,15 @@
       targetLabelEl.textContent = `${target}%`;
 
       if (!data) {
-        current = { cards, label, data: null, pct: NaN, pos, target, answered: true };
+        current = { label, data: null, pct: NaN, pos, target, answered: true };
         resultEl.innerHTML = `<div class="bad">Hand label <b>${label}</b> not found in rankings map.</div>`;
         setButtonsEnabled(false);
+        saveState();
         return;
       }
 
       const pct = parsePct(data.Percentile);
-      current = { cards, label, data, pct, pos, target, answered: false };
+      current = { label, data, pct, pos, target, answered: false };
 
       setButtonsEnabled(true);
       saveState();
@@ -344,11 +374,10 @@
     function judge(choice) {
       if (!current || current.answered) return;
 
-      // If percentile is missing/bad, treat as not answerable
       if (!Number.isFinite(current.pct)) {
         current.answered = true;
         setButtonsEnabled(false);
-        resultEl.innerHTML = `<div class="bad">Percentile value missing for <b>${current.label}</b>.</div>`;
+        resultEl.innerHTML = `<div class="bad">Percentile missing for <b>${current.label}</b>.</div>`;
         return;
       }
 
@@ -377,22 +406,19 @@
       const correctText = shouldPlay ? "PLAY" : "FOLD";
       const yourText = userPlay ? "PLAY" : "FOLD";
 
-      let extra = "";
-      if (shouldPlay) {
-        // positive means you were too tight (folded a playable hand) if you chose fold
-        const margin = Math.round(current.target - current.pct);
-        extra = `It is inside your range by <b>${margin}</b> points (target ${current.target} vs actual ${Math.round(current.pct)}).`;
-      } else {
-        const margin = Math.round(current.pct - current.target);
-        extra = `It is outside your range by <b>${margin}</b> points (actual ${Math.round(current.pct)} vs target ${current.target}).`;
-      }
+      const pctRounded = Math.round(current.pct);
+      const margin = shouldPlay ? Math.round(current.target - current.pct) : Math.round(current.pct - current.target);
+
+      const marginText = shouldPlay
+        ? `It is inside your range by <b>${margin}</b> points (target ${current.target} vs actual ${pctRounded}).`
+        : `It is outside your range by <b>${margin}</b> points (actual ${pctRounded} vs target ${current.target}).`;
 
       resultEl.innerHTML = `
         <div class="${cls}">
           You chose <b>${yourText}</b>. Correct is <b>${correctText}</b>.
         </div>
         <div class="muted" style="margin-top:6px;">
-          Hand percentile: <b>${Math.round(current.pct)}</b> | ${extra}
+          Hand percentile: <b>${pctRounded}</b> | ${marginText}
         </div>
         <div class="muted" style="margin-top:6px;">
           Rank: <b>#${current.data.Rank}</b> | Win: <b>${current.data["% win"]}</b> | Tie: <b>${current.data["% tie"]}</b>
@@ -413,12 +439,9 @@
     nextBtn.addEventListener("click", newHand);
     resetBtn.addEventListener("click", resetStats);
 
-    posModeEl.addEventListener("change", () => {
-      fixedPosEl.disabled = (posModeEl.value !== "fixed");
-      saveState();
-      newHand();
-    });
-    fixedPosEl.addEventListener("change", () => {
+    tableSizeEl.addEventListener("change", () => {
+      const size = Number(tableSizeEl.value) === 9 ? 9 : 6;
+      configureTable(size);
       saveState();
       newHand();
     });
@@ -431,11 +454,11 @@
     });
 
     // Init
+    configureTable(6);
     loadState();
-    fixedPosEl.disabled = (posModeEl.value !== "fixed");
     setStatsUI();
+    rebuildTargetsTable();
     newHand();
   </script>
 </body>
 </html>
-
