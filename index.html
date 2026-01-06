@@ -1,82 +1,97 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Poker Training</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Poker Trainers</title>
   <style>
-    body {
-      background:#0b0f14;
-      color:#e8eef7;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      margin:0;
-    }
-
-    .wrap {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 32px;
-    }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-    }
-
-    .muted {
-      opacity:.75;
-      margin-bottom: 24px;
-    }
-
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background:#0b0f14; color:#e8eef7; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .muted { opacity: .75; }
     .grid {
-      display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap:16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
     }
-
-    a.card {
-      display:block;
-      padding:22px;
-      border-radius:18px;
+    .card {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .title { font-weight: 900; font-size: 16px; margin-bottom: 6px; }
+    .desc { font-size: 13px; opacity: .8; line-height: 1.35; }
+    a.btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.16);
       background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
-      text-decoration:none;
-      color:inherit;
-      transition: background .15s ease, transform .15s ease;
+      color: #e8eef7;
+      text-decoration: none;
+      font-weight: 800;
     }
-
-    a.card:hover {
-      background: rgba(255,255,255,.12);
-      transform: translateY(-2px);
+    a.btn:hover { background: rgba(255,255,255,.12); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      font-size: 12px;
+      opacity: .9;
+      margin-top: 10px;
     }
-
-    h2 {
-      margin:0 0 8px;
-      font-size: 20px;
-    }
+    .footer { margin-top: 18px; font-size: 12px; opacity: .7; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Poker Training</h1>
+    <h1>Poker Trainers</h1>
     <div class="muted">
-      Interactive tools to build preflop intuition.
+      Quick links to your training games.
     </div>
 
     <div class="grid">
-      <a class="card" href="/preflop/">
-        <h2>Preflop Rank Trainer</h2>
-        <p class="muted">
-          Guess hand strength by exact rank or percentile.
-        </p>
-      </a>
+      <div class="card">
+        <div class="title">Preflop Percentile Guess</div>
+        <div class="desc">
+          Get dealt 2 cards and guess the hand percentile. Good for building intuition fast.
+        </div>
+        <div class="pill">Mode: Percentile</div>
+        <a class="btn" href="./preflop-game/">Open</a>
+      </div>
 
-      <a class="card" href="/preflop-mcq/">
-        <h2>Preflop MCQ Trainer</h2>
-        <p class="muted">
-          Multiple choice version with 8 options per hand.
-        </p>
-      </a>
+      <div class="card">
+        <div class="title">Preflop Multiple Choice</div>
+        <div class="desc">
+          Same idea, but 8 answer options. Faster reps, less typing.
+        </div>
+        <div class="pill">Mode: Multiple choice</div>
+        <a class="btn" href="./preflop-mcq/">Open</a>
+      </div>
+
+      <div class="card">
+        <div class="title">VPIP Trainer</div>
+        <div class="desc">
+          Get dealt a hand and position. Decide Play (VPIP) or Fold using position cutoffs.
+        </div>
+        <div class="pill">Skill: Discipline</div>
+        <a class="btn" href="./vpip-trainer/">Open</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      If a link 404s, check your folder names match exactly. These links assume folders like
+      <code>preflop-game</code>, <code>preflop-mcq</code>, <code>vpip-trainer</code> next to this file.
     </div>
   </div>
 </body>
