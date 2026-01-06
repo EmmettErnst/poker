@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VPIP Trainer</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background:#0b0f14; color:#e8eef7; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .muted { opacity:.75; }
+
+    .panel{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+
+    .row { display:flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+    label { display:block; font-size: 12px; opacity:.85; margin: 0 0 6px; }
+
+    button, select {
+      border-radius: 12px; border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.08); color:#e8eef7;
+      padding: 10px 12px; font-size: 14px;
+      outline: none;
+    }
+    button { cursor:pointer; font-weight: 800; }
+    button:hover { background: rgba(255,255,255,.12); }
+
+    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top: 10px; }
+    .play { border-color: rgba(110,231,183,.45); }
+    .fold { border-color: rgba(252,165,165,.45); }
+
+    .cardrow { display:flex; gap:16px; margin: 14px 0 8px; align-items:center; flex-wrap: wrap; }
+    .playing-card{
+      width: 110px; height: 150px; border-radius: 14px;
+      background: #f8fbff; color:#111; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      display:flex; flex-direction:column; justify-content:space-between; padding: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      user-select:none;
+    }
+    .corner { font-weight: 800; font-size: 22px; line-height: 1; }
+    .suit { font-size: 26px; opacity:.9; }
+    .center { display:flex; justify-content:center; align-items:center; font-size: 54px; font-weight: 900; }
+    .red { color:#c81d25; }
+    .black { color:#111; }
+
+    .pill{
+      display:inline-flex; gap: 8px; align-items:center;
+      padding: 8px 10px; border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      margin-right: 8px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .result { margin-top: 10px; line-height: 1.45; }
+    .good { color: #6ee7b7; }
+    .bad  { color: #fca5a5; }
+
+    .tiny { font-size: 12px; opacity:.8; margin-top: 10px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2px 6px; border-radius: 8px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); }
+
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { text-align:left; padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.10); font-size: 13px; }
+    th { opacity: .85; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>VPIP Trainer</h1>
+    <div class="muted">
+      You get dealt a hand + position. Decide if you would VPIP (Play) or Fold using a simple opening cutoff based on percentile (lower is better).
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <div>
+          <label for="posMode">Position mode</label>
+          <select id="posMode">
+            <option value="random" selected>Random position</option>
+            <option value="fixed">Fixed position</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="fixedPos">Fixed position</label>
+          <select id="fixedPos" disabled>
+            <option value="UTG">UTG</option>
+            <option value="HJ">HJ</option>
+            <option value="CO">CO</option>
+            <option value="BTN">BTN</option>
+            <option value="SB">SB</option>
+          </select>
+        </div>
+
+        <button id="nextBtn">Next hand</button>
+        <button id="resetBtn">Reset stats</button>
+      </div>
+
+      <div class="cardrow" id="cardRow"></div>
+
+      <div class="actions">
+        <button class="play" id="playBtn">Play (VPIP)</button>
+        <button class="fold" id="foldBtn">Fold</button>
+      </div>
+
+      <div class="result" id="result"></div>
+
+      <div>
+        <span class="pill">Hand: <b id="handLabel">...</b></span>
+        <span class="pill">Position: <b id="posLabel">...</b></span>
+        <span class="pill">Target VPIP: <b id="targetLabel">...</b></span>
+      </div>
+
+      <div>
+        <span class="pill">Hands: <b id="handsN">0</b></span>
+        <span class="pill">Accuracy: <b id="acc">0%</b></span>
+        <span class="pill">Your VPIP: <b id="yourVpip">0%</b></span>
+        <span class="pill">Streak: <b id="streak">0</b></span>
+        <span class="pill">Best streak: <b id="bestStreak">0</b></span>
+      </div>
+
+      <div class="tiny">
+        Shortcuts: <span class="kbd">P</span> play, <span class="kbd">F</span> fold, <span class="kbd">N</span> next.
+      </div>
+
+      <div class="muted" style="margin-top:12px;">
+        Default cutoffs (6-max open): play if percentile ≤ target.
+      </div>
+      <table>
+        <thead>
+          <tr><th>Position</th><th>Target VPIP</th><th>Notes</th></tr>
+        </thead>
+        <tbody id="targetsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { RANKINGS, buildIndex } from "../assets/preflop_rankings_169.js";
+
+    const { byCards: byHand } = buildIndex(RANKINGS);
+
+    // Simple 6-max open cutoffs (percent of hands).
+    // Interpret as: play if Percentile <= target (lower is better).
+    const TARGETS = {
+      UTG: 18,
+      HJ: 22,
+      CO: 27,
+      BTN: 40,
+      SB: 45
+    };
+    const POSITIONS = Object.keys(TARGETS);
+
+    const STORAGE_KEY = "vpip_trainer_v1";
+
+    const RANK_VALUE = new Map([
+      ["A",14],["K",13],["Q",12],["J",11],["T",10],
+      ["9",9],["8",8],["7",7],["6",6],["5",5],["4",4],["3",3],["2",2]
+    ]);
+
+    const SUITS = [
+      {c:"♠", color:"black", key:"s"},
+      {c:"♥", color:"red",   key:"h"},
+      {c:"♦", color:"red",   key:"d"},
+      {c:"♣", color:"black", key:"c"},
+    ];
+    const RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
+
+    function makeDeck() {
+      const deck = [];
+      for (const r of RANKS) for (const s of SUITS) deck.push({rank:r, suit:s});
+      return deck;
+    }
+    function randInt(n) { return Math.floor(Math.random() * n); }
+    function drawTwo() {
+      const deck = makeDeck();
+      const a = deck.splice(randInt(deck.length), 1)[0];
+      const b = deck.splice(randInt(deck.length), 1)[0];
+      return [a,b];
+    }
+
+    function toHandLabel(c1, c2) {
+      const r1 = c1.rank, r2 = c2.rank;
+      const v1 = RANK_VALUE.get(r1), v2 = RANK_VALUE.get(r2);
+
+      if (r1 === r2) return r1 + r2;
+
+      let hi = r1, lo = r2;
+      if (v2 > v1) { hi = r2; lo = r1; }
+
+      const suited = (c1.suit.key === c2.suit.key);
+      return hi + lo + (suited ? "s" : "o");
+    }
+
+    function renderCard(card) {
+      const isRed = card.suit.color === "red";
+      const div = document.createElement("div");
+      div.className = "playing-card";
+
+      const top = document.createElement("div");
+      top.className = "corner " + (isRed ? "red" : "black");
+      top.innerHTML = `${card.rank}<div class="suit">${card.suit.c}</div>`;
+
+      const mid = document.createElement("div");
+      mid.className = "center " + (isRed ? "red" : "black");
+      mid.textContent = card.suit.c;
+
+      const bot = document.createElement("div");
+      bot.className = "corner " + (isRed ? "red" : "black");
+      bot.style.transform = "rotate(180deg)";
+      bot.innerHTML = `${card.rank}<div class="suit">${card.suit.c}</div>`;
+
+      div.appendChild(top);
+      div.appendChild(mid);
+      div.appendChild(bot);
+      return div;
+    }
+
+    function parsePct(x) {
+      if (x == null) return NaN;
+      const s = String(x).trim().replace("%", "");
+      const v = Number(s);
+      return Number.isFinite(v) ? v : NaN;
+    }
+
+    // UI
+    const cardRow = document.getElementById("cardRow");
+    const resultEl = document.getElementById("result");
+    const handLabelEl = document.getElementById("handLabel");
+    const posLabelEl = document.getElementById("posLabel");
+    const targetLabelEl = document.getElementById("targetLabel");
+
+    const handsNEl = document.getElementById("handsN");
+    const accEl = document.getElementById("acc");
+    const yourVpipEl = document.getElementById("yourVpip");
+    const streakEl = document.getElementById("streak");
+    const bestStreakEl = document.getElementById("bestStreak");
+
+    const playBtn = document.getElementById("playBtn");
+    const foldBtn = document.getElementById("foldBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const posModeEl = document.getElementById("posMode");
+    const fixedPosEl = document.getElementById("fixedPos");
+
+    const targetsTable = document.getElementById("targetsTable");
+    targetsTable.innerHTML = POSITIONS.map(p => {
+      const note = (p === "UTG") ? "Tightest" : (p === "BTN" ? "Widest" : "");
+      return `<tr><td><b>${p}</b></td><td>${TARGETS[p]}%</td><td class="muted">${note}</td></tr>`;
+    }).join("");
+
+    // State
+    let current = null; // {cards,label,data,pct,pos,target,answered}
+    let stats = {
+      hands: 0,
+      correct: 0,
+      vpip: 0,
+      streak: 0,
+      bestStreak: 0
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === "object") {
+          stats = { ...stats, ...obj.stats };
+          if (obj.posMode) posModeEl.value = obj.posMode;
+          if (obj.fixedPos && TARGETS[obj.fixedPos] != null) fixedPosEl.value = obj.fixedPos;
+        }
+      } catch {}
+    }
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          stats,
+          posMode: posModeEl.value,
+          fixedPos: fixedPosEl.value
+        }));
+      } catch {}
+    }
+
+    function setButtonsEnabled(enabled) {
+      playBtn.disabled = !enabled;
+      foldBtn.disabled = !enabled;
+    }
+
+    function setStatsUI() {
+      handsNEl.textContent = String(stats.hands);
+      const acc = stats.hands ? Math.round((stats.correct / stats.hands) * 100) : 0;
+      const yourV = stats.hands ? Math.round((stats.vpip / stats.hands) * 100) : 0;
+      accEl.textContent = `${acc}%`;
+      yourVpipEl.textContent = `${yourV}%`;
+      streakEl.textContent = String(stats.streak);
+      bestStreakEl.textContent = String(stats.bestStreak);
+    }
+
+    function pickPosition() {
+      if (posModeEl.value === "fixed") return fixedPosEl.value;
+      return POSITIONS[randInt(POSITIONS.length)];
+    }
+
+    function newHand() {
+      resultEl.innerHTML = "";
+      cardRow.innerHTML = "";
+
+      const pos = pickPosition();
+      const target = TARGETS[pos];
+
+      const cards = drawTwo();
+      const label = toHandLabel(cards[0], cards[1]);
+      const data = byHand.get(label) || null;
+
+      cardRow.appendChild(renderCard(cards[0]));
+      cardRow.appendChild(renderCard(cards[1]));
+
+      handLabelEl.textContent = label + (data ? "" : " (not found)");
+      posLabelEl.textContent = pos;
+      targetLabelEl.textContent = `${target}%`;
+
+      if (!data) {
+        current = { cards, label, data: null, pct: NaN, pos, target, answered: true };
+        resultEl.innerHTML = `<div class="bad">Hand label <b>${label}</b> not found in rankings map.</div>`;
+        setButtonsEnabled(false);
+        return;
+      }
+
+      const pct = parsePct(data.Percentile);
+      current = { cards, label, data, pct, pos, target, answered: false };
+
+      setButtonsEnabled(true);
+      saveState();
+    }
+
+    function judge(choice) {
+      if (!current || current.answered) return;
+
+      // If percentile is missing/bad, treat as not answerable
+      if (!Number.isFinite(current.pct)) {
+        current.answered = true;
+        setButtonsEnabled(false);
+        resultEl.innerHTML = `<div class="bad">Percentile value missing for <b>${current.label}</b>.</div>`;
+        return;
+      }
+
+      current.answered = true;
+      setButtonsEnabled(false);
+
+      const shouldPlay = current.pct <= current.target;
+      const userPlay = (choice === "play");
+      const correct = (userPlay === shouldPlay);
+
+      stats.hands += 1;
+      if (userPlay) stats.vpip += 1;
+
+      if (correct) {
+        stats.correct += 1;
+        stats.streak += 1;
+        if (stats.streak > stats.bestStreak) stats.bestStreak = stats.streak;
+      } else {
+        stats.streak = 0;
+      }
+
+      setStatsUI();
+      saveState();
+
+      const cls = correct ? "good" : "bad";
+      const correctText = shouldPlay ? "PLAY" : "FOLD";
+      const yourText = userPlay ? "PLAY" : "FOLD";
+
+      let extra = "";
+      if (shouldPlay) {
+        // positive means you were too tight (folded a playable hand) if you chose fold
+        const margin = Math.round(current.target - current.pct);
+        extra = `It is inside your range by <b>${margin}</b> points (target ${current.target} vs actual ${Math.round(current.pct)}).`;
+      } else {
+        const margin = Math.round(current.pct - current.target);
+        extra = `It is outside your range by <b>${margin}</b> points (actual ${Math.round(current.pct)} vs target ${current.target}).`;
+      }
+
+      resultEl.innerHTML = `
+        <div class="${cls}">
+          You chose <b>${yourText}</b>. Correct is <b>${correctText}</b>.
+        </div>
+        <div class="muted" style="margin-top:6px;">
+          Hand percentile: <b>${Math.round(current.pct)}</b> | ${extra}
+        </div>
+        <div class="muted" style="margin-top:6px;">
+          Rank: <b>#${current.data.Rank}</b> | Win: <b>${current.data["% win"]}</b> | Tie: <b>${current.data["% tie"]}</b>
+        </div>
+      `;
+    }
+
+    function resetStats() {
+      stats = { hands: 0, correct: 0, vpip: 0, streak: 0, bestStreak: 0 };
+      setStatsUI();
+      resultEl.innerHTML = "";
+      saveState();
+    }
+
+    // Events
+    playBtn.addEventListener("click", () => judge("play"));
+    foldBtn.addEventListener("click", () => judge("fold"));
+    nextBtn.addEventListener("click", newHand);
+    resetBtn.addEventListener("click", resetStats);
+
+    posModeEl.addEventListener("change", () => {
+      fixedPosEl.disabled = (posModeEl.value !== "fixed");
+      saveState();
+      newHand();
+    });
+    fixedPosEl.addEventListener("change", () => {
+      saveState();
+      newHand();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if (k === "n") newHand();
+      if (k === "p") judge("play");
+      if (k === "f") judge("fold");
+    });
+
+    // Init
+    loadState();
+    fixedPosEl.disabled = (posModeEl.value !== "fixed");
+    setStatsUI();
+    newHand();
+  </script>
+</body>
+</html>
+
